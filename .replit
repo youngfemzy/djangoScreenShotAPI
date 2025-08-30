@@ -2,7 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "gitFull", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "openssl", "playwright-driver", "postgresql", "tcl", "tk", "zlib", "nss", "dbus", "atk", "at-spi2-atk", "cups", "libxkbcommon", "mesa", "cairo", "pango", "alsa-lib", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXfixes", "xorg.libXrandr", "libdrm"]
+packages = ["alsa-lib", "at-spi2-atk", "atk", "cairo", "cups", "dbus", "fontconfig", "freetype", "geckodriver", "gitFull", "lcms2", "libdrm", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "libxkbcommon", "mesa", "nss", "openjpeg", "openssl", "pango", "playwright-driver", "postgresql", "tcl", "tk", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXfixes", "xorg.libXrandr", "xvfb-run", "zlib", "chromium"]
 
 [deployment]
 deploymentTarget = "autoscale"

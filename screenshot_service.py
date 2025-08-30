@@ -2,6 +2,12 @@ import os
 import logging
 from playwright.sync_api import sync_playwright
 import asyncio
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
 
 class ScreenshotService:
     """Service for capturing website screenshots using Playwright"""
@@ -38,18 +44,26 @@ class ScreenshotService:
             # Try Playwright first, fallback to placeholder if dependencies missing
             try:
                 with sync_playwright() as p:
-                    # Launch browser with additional args for headless server environment
+                    # Launch browser with comprehensive args for server environment
                     browser = p.chromium.launch(
                         headless=True,
                         args=[
                             '--no-sandbox',
-                            '--disable-setuid-sandbox',
+                            '--disable-setuid-sandbox', 
                             '--disable-dev-shm-usage',
                             '--disable-accelerated-2d-canvas',
                             '--no-first-run',
                             '--no-zygote',
                             '--disable-gpu',
-                            '--disable-features=VizDisplayCompositor'
+                            '--disable-features=VizDisplayCompositor',
+                            '--disable-background-timer-throttling',
+                            '--disable-backgrounding-occluded-windows',
+                            '--disable-renderer-backgrounding',
+                            '--disable-field-trial-config',
+                            '--disable-ipc-flooding-protection',
+                            '--single-process',
+                            '--no-default-browser-check',
+                            '--no-experiments'
                         ]
                     )
                     context = browser.new_context(
@@ -92,9 +106,14 @@ class ScreenshotService:
                     }
                     
             except Exception as playwright_error:
-                # If Playwright fails, create a placeholder screenshot
-                logging.warning(f"Playwright failed, creating placeholder: {str(playwright_error)}")
-                return self._create_placeholder_screenshot(url, device_name, config, output_folder)
+                # If Playwright fails, try Selenium as fallback
+                logging.warning(f"Playwright failed, trying Selenium: {str(playwright_error)}")
+                try:
+                    return self._capture_with_selenium(url, device_name, config, output_folder)
+                except Exception as selenium_error:
+                    # If both fail, create a placeholder screenshot
+                    logging.warning(f"Selenium also failed, creating placeholder: {str(selenium_error)}")
+                    return self._create_placeholder_screenshot(url, device_name, config, output_folder)
                 
         except Exception as e:
             logging.error(f"Error capturing screenshot: {str(e)}")
@@ -102,6 +121,79 @@ class ScreenshotService:
                 'success': False,
                 'error': str(e)
             }
+    
+    def _capture_with_selenium(self, url, device_name, config, output_folder):
+        """Capture screenshot using Selenium as fallback to Playwright"""
+        try:
+            # Set up Chrome options for headless operation
+            import tempfile
+            import uuid
+            
+            chrome_options = ChromeOptions()
+            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-extensions')
+            chrome_options.add_argument('--disable-logging')
+            chrome_options.add_argument('--disable-web-security')
+            chrome_options.add_argument('--ignore-certificate-errors')
+            chrome_options.add_argument('--single-process')
+            chrome_options.add_argument('--disable-software-rasterizer')
+            chrome_options.add_argument('--disable-background-timer-throttling')
+            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+            chrome_options.add_argument('--disable-renderer-backgrounding')
+            chrome_options.add_argument(f'--window-size={config["width"]},{config["height"]}')
+            chrome_options.add_argument(f'--user-agent={config["user_agent"]}')
+            
+            # Create unique temporary user data directory
+            temp_dir = tempfile.mkdtemp(prefix=f'chrome_data_{uuid.uuid4().hex[:8]}_')
+            chrome_options.add_argument(f'--user-data-dir={temp_dir}')
+            
+            # Initialize the Chrome driver
+            driver = webdriver.Chrome(options=chrome_options)
+            
+            try:
+                # Set window size
+                driver.set_window_size(config['width'], config['height'])
+                
+                # Navigate to the URL
+                driver.get(url)
+                
+                # Wait for page to load
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "body"))
+                )
+                
+                # Additional wait for dynamic content
+                time.sleep(2)
+                
+                # Generate filename
+                safe_device_name = device_name.replace(' ', '_').lower()
+                filename = f"{safe_device_name}_{config['width']}x{config['height']}.png"
+                filepath = os.path.join(output_folder, filename)
+                
+                # Take screenshot
+                driver.save_screenshot(filepath)
+                
+                logging.info(f"Selenium screenshot captured: {filepath}")
+                
+                return {
+                    'success': True,
+                    'path': filepath,
+                    'device_name': device_name,
+                    'width': config['width'],
+                    'height': config['height'],
+                    'filename': filename
+                }
+                
+            finally:
+                # Always close the driver
+                driver.quit()
+                
+        except Exception as e:
+            logging.error(f"Selenium screenshot failed: {str(e)}")
+            raise e  # Re-raise to trigger placeholder fallback
     
     def _create_placeholder_screenshot(self, url, device_name, config, output_folder):
         """Create a placeholder screenshot when Playwright is unavailable"""
