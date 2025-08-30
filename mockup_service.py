@@ -7,7 +7,7 @@ class MockupService:
     """Service for creating device mockups from screenshots"""
     
     def __init__(self):
-        # Device mockup configurations with colors and dimensions
+        # Device mockup configurations with colors and standard dimensions
         self.mockup_configs = {
             'mobile': {
                 'frame_color': '#1a1a1a',
@@ -15,7 +15,11 @@ class MockupService:
                 'frame_width': 30,
                 'corner_radius': 25,
                 'button_radius': 3,
-                'camera_radius': 8
+                'camera_radius': 8,
+                'device_width': 200,    # Standard mobile mockup width
+                'device_height': 400,   # Standard mobile mockup height
+                'screen_width': 140,    # Actual screen area width
+                'screen_height': 280    # Actual screen area height
             },
             'tablet': {
                 'frame_color': '#2a2a2a',
@@ -23,7 +27,11 @@ class MockupService:
                 'frame_width': 40,
                 'corner_radius': 15,
                 'button_radius': 2,
-                'camera_radius': 0
+                'camera_radius': 0,
+                'device_width': 300,    # Standard tablet mockup width
+                'device_height': 400,   # Standard tablet mockup height
+                'screen_width': 220,    # Actual screen area width
+                'screen_height': 300    # Actual screen area height
             },
             'desktop': {
                 'frame_color': '#333333',
@@ -32,12 +40,16 @@ class MockupService:
                 'corner_radius': 8,
                 'button_radius': 0,
                 'camera_radius': 0,
-                'stand_height': 100
+                'stand_height': 80,
+                'device_width': 400,    # Standard desktop mockup width
+                'device_height': 300,   # Standard desktop mockup height (without stand)
+                'screen_width': 360,    # Actual screen area width
+                'screen_height': 220    # Actual screen area height
             }
         }
     
     def create_mockup(self, screenshot_path, device_type, output_folder):
-        """Create a device mockup from a screenshot"""
+        """Create a device mockup from a screenshot with standard device dimensions"""
         try:
             if not os.path.exists(screenshot_path):
                 return {'success': False, 'error': 'Screenshot file not found'}
@@ -49,33 +61,47 @@ class MockupService:
             
             # Load the screenshot
             screenshot = Image.open(screenshot_path)
-            screenshot_width, screenshot_height = screenshot.size
             
-            # Calculate mockup dimensions
-            frame_width = config['frame_width']
-            mockup_width = screenshot_width + (frame_width * 2)
-            mockup_height = screenshot_height + (frame_width * 2)
+            # Use standard device dimensions
+            device_width = config['device_width']
+            device_height = config['device_height']
+            screen_width = config['screen_width']
+            screen_height = config['screen_height']
             
             # Add extra height for desktop stand
+            total_height = device_height
             if device_type == 'desktop':
-                mockup_height += config['stand_height']
+                total_height += config['stand_height']
             
-            # Create mockup canvas
-            mockup = Image.new('RGBA', (mockup_width, mockup_height), (255, 255, 255, 0))
+            # Create mockup canvas with standard device size
+            mockup = Image.new('RGBA', (device_width, total_height), (255, 255, 255, 0))
             draw = ImageDraw.Draw(mockup)
             
-            # Draw device frame
+            # Draw device frame with standard dimensions
             if device_type == 'mobile':
-                self._draw_mobile_frame(draw, mockup_width, mockup_height, config)
+                self._draw_mobile_frame(draw, device_width, device_height, config)
             elif device_type == 'tablet':
-                self._draw_tablet_frame(draw, mockup_width, mockup_height, config)
+                self._draw_tablet_frame(draw, device_width, device_height, config)
             elif device_type == 'desktop':
-                self._draw_desktop_frame(draw, mockup_width, mockup_height, config)
+                self._draw_desktop_frame(draw, device_width, total_height, config)
             
-            # Paste screenshot onto the mockup
-            screen_x = frame_width
-            screen_y = frame_width
-            mockup.paste(screenshot, (screen_x, screen_y))
+            # Resize/crop screenshot to fit in the device screen area
+            screenshot_resized = self._fit_screenshot_to_device(screenshot, screen_width, screen_height)
+            
+            # Calculate screen position (centered in device frame)
+            screen_x = (device_width - screen_width) // 2
+            screen_y = (device_height - screen_height) // 2
+            
+            # For mobile, adjust for top bezel
+            if device_type == 'mobile':
+                screen_y = 60  # Leave space for camera and speaker
+            elif device_type == 'tablet':
+                screen_y = 50  # Leave space for top bezel
+            elif device_type == 'desktop':
+                screen_y = 40  # Leave space for top bezel
+            
+            # Paste resized screenshot onto the mockup
+            mockup.paste(screenshot_resized, (screen_x, screen_y))
             
             # Add shadow effect
             mockup = self._add_shadow(mockup)
@@ -103,6 +129,40 @@ class MockupService:
                 'success': False,
                 'error': str(e)
             }
+    
+    def _fit_screenshot_to_device(self, screenshot, target_width, target_height):
+        """Resize and crop screenshot to fit device screen dimensions"""
+        try:
+            # Get original screenshot dimensions
+            original_width, original_height = screenshot.size
+            
+            # Calculate scale to fit width while maintaining aspect ratio
+            scale_x = target_width / original_width
+            scale_y = target_height / original_height
+            
+            # Use the smaller scale to ensure it fits within the target dimensions
+            scale = min(scale_x, scale_y)
+            
+            # Resize screenshot
+            new_width = int(original_width * scale)
+            new_height = int(original_height * scale)
+            screenshot_resized = screenshot.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Create target canvas
+            result = Image.new('RGB', (target_width, target_height), color='#ffffff')
+            
+            # Center the resized screenshot
+            x = (target_width - new_width) // 2
+            y = 0  # Align to top for scrollable effect
+            
+            result.paste(screenshot_resized, (x, y))
+            
+            return result
+            
+        except Exception as e:
+            logging.error(f"Error fitting screenshot to device: {str(e)}")
+            # Fallback: just resize to target dimensions
+            return screenshot.resize((target_width, target_height), Image.Resampling.LANCZOS)
     
     def _draw_mobile_frame(self, draw, width, height, config):
         """Draw mobile device frame"""
