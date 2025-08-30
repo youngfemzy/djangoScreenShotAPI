@@ -111,6 +111,7 @@ def generate_screenshots(project_id):
                     screenshot.height = screenshot_result['height']
                     
                     db.session.add(screenshot)
+                    db.session.flush()  # Flush to get the ID and timestamp
                     generated_screenshots.append(screenshot.to_dict())
                     
                     logging.info(f"Generated screenshot for {device_type}: {screenshot_result['path']}")

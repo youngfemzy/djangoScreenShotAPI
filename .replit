@@ -2,7 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "gitFull", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "openssl", "playwright-driver", "postgresql", "tcl", "tk", "zlib"]
+packages = ["freetype", "gitFull", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "openssl", "playwright-driver", "postgresql", "tcl", "tk", "zlib", "nss", "dbus", "atk", "at-spi2-atk", "cups", "libxkbcommon", "mesa", "cairo", "pango", "alsa-lib", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXfixes", "xorg.libXrandr", "libdrm"]
 
 [deployment]
 deploymentTarget = "autoscale"

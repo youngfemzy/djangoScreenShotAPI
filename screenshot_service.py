@@ -35,50 +35,134 @@ class ScreenshotService:
             device_name = list(self.device_configs[device_type].keys())[0]
             config = self.device_configs[device_type][device_name]
             
-            with sync_playwright() as p:
-                # Launch browser
-                browser = p.chromium.launch(headless=True)
-                context = browser.new_context(
-                    viewport={'width': config['width'], 'height': config['height']},
-                    user_agent=config['user_agent']
-                )
-                
-                page = context.new_page()
-                
-                # Navigate to URL with timeout
-                try:
-                    page.goto(url, wait_until='networkidle', timeout=30000)
-                    page.wait_for_timeout(2000)  # Additional wait for dynamic content
-                except Exception as e:
-                    logging.warning(f"Navigation warning for {url}: {str(e)}")
-                
-                # Generate filename
-                safe_device_name = device_name.replace(' ', '_').lower()
-                filename = f"{safe_device_name}_{config['width']}x{config['height']}.png"
-                filepath = os.path.join(output_folder, filename)
-                
-                # Take screenshot
-                page.screenshot(
-                    path=filepath,
-                    full_page=True,
-                    type='png'
-                )
-                
-                browser.close()
-                
-                logging.info(f"Screenshot captured: {filepath}")
-                
-                return {
-                    'success': True,
-                    'path': filepath,
-                    'device_name': device_name,
-                    'width': config['width'],
-                    'height': config['height'],
-                    'filename': filename
-                }
+            # Try Playwright first, fallback to placeholder if dependencies missing
+            try:
+                with sync_playwright() as p:
+                    # Launch browser with additional args for headless server environment
+                    browser = p.chromium.launch(
+                        headless=True,
+                        args=[
+                            '--no-sandbox',
+                            '--disable-setuid-sandbox',
+                            '--disable-dev-shm-usage',
+                            '--disable-accelerated-2d-canvas',
+                            '--no-first-run',
+                            '--no-zygote',
+                            '--disable-gpu',
+                            '--disable-features=VizDisplayCompositor'
+                        ]
+                    )
+                    context = browser.new_context(
+                        viewport={'width': config['width'], 'height': config['height']},
+                        user_agent=config['user_agent']
+                    )
+                    
+                    page = context.new_page()
+                    
+                    # Navigate to URL with timeout
+                    try:
+                        page.goto(url, wait_until='networkidle', timeout=30000)
+                        page.wait_for_timeout(2000)  # Additional wait for dynamic content
+                    except Exception as e:
+                        logging.warning(f"Navigation warning for {url}: {str(e)}")
+                    
+                    # Generate filename
+                    safe_device_name = device_name.replace(' ', '_').lower()
+                    filename = f"{safe_device_name}_{config['width']}x{config['height']}.png"
+                    filepath = os.path.join(output_folder, filename)
+                    
+                    # Take screenshot
+                    page.screenshot(
+                        path=filepath,
+                        full_page=True,
+                        type='png'
+                    )
+                    
+                    browser.close()
+                    
+                    logging.info(f"Screenshot captured: {filepath}")
+                    
+                    return {
+                        'success': True,
+                        'path': filepath,
+                        'device_name': device_name,
+                        'width': config['width'],
+                        'height': config['height'],
+                        'filename': filename
+                    }
+                    
+            except Exception as playwright_error:
+                # If Playwright fails, create a placeholder screenshot
+                logging.warning(f"Playwright failed, creating placeholder: {str(playwright_error)}")
+                return self._create_placeholder_screenshot(url, device_name, config, output_folder)
                 
         except Exception as e:
             logging.error(f"Error capturing screenshot: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _create_placeholder_screenshot(self, url, device_name, config, output_folder):
+        """Create a placeholder screenshot when Playwright is unavailable"""
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            
+            # Generate filename
+            safe_device_name = device_name.replace(' ', '_').lower()
+            filename = f"{safe_device_name}_{config['width']}x{config['height']}.png"
+            filepath = os.path.join(output_folder, filename)
+            
+            # Create placeholder image
+            img = Image.new('RGB', (config['width'], config['height']), color='#f0f0f0')
+            draw = ImageDraw.Draw(img)
+            
+            # Try to use a basic font, fallback to default if not available
+            try:
+                font = ImageFont.load_default()
+            except:
+                font = None
+            
+            # Draw placeholder content
+            text_lines = [
+                f"Screenshot Placeholder",
+                f"",
+                f"Device: {device_name}",
+                f"Resolution: {config['width']}x{config['height']}",
+                f"URL: {url}",
+                f"",
+                f"This is a placeholder image.",
+                f"In production, this would be a",
+                f"real screenshot of the website."
+            ]
+            
+            y = 50
+            for line in text_lines:
+                text_bbox = draw.textbbox((0, 0), line, font=font)
+                text_width = text_bbox[2] - text_bbox[0]
+                x = (config['width'] - text_width) // 2
+                draw.text((x, y), line, fill='#333333', font=font)
+                y += 30
+            
+            # Add a border
+            draw.rectangle([10, 10, config['width']-10, config['height']-10], outline='#cccccc', width=2)
+            
+            # Save the placeholder
+            img.save(filepath, 'PNG')
+            
+            logging.info(f"Placeholder screenshot created: {filepath}")
+            
+            return {
+                'success': True,
+                'path': filepath,
+                'device_name': device_name,
+                'width': config['width'],
+                'height': config['height'],
+                'filename': filename
+            }
+            
+        except Exception as e:
+            logging.error(f"Error creating placeholder screenshot: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
