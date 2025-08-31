@@ -1,0 +1,207 @@
+{% extends 'screenshots/base.html' %}
+
+{% block title %}Screenshot Generator - Projects{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-4 fw-bold text-white mb-3">
+            <i class="fas fa-camera-retro me-3"></i>Website Screenshot Generator
+        </h1>
+        <p class="lead text-white-50">Create professional device mockups from any website URL</p>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Create New Project -->
+    <div class="row mb-5">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-plus-circle me-2"></i>Create New Project
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form id="createProjectForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="projectName" class="form-label">Project Name</label>
+                                <input type="text" class="form-control" id="projectName" required 
+                                       placeholder="My Website Screenshots">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="websiteUrl" class="form-label">Website URL</label>
+                                <input type="url" class="form-control" id="websiteUrl" required 
+                                       placeholder="https://example.com">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-rocket me-2"></i>Create Project
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-folder-open me-2"></i>Your Projects</h2>
+                <button class="btn btn-outline-primary" onclick="location.reload()">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                </button>
+            </div>
+
+            {% if projects %}
+                <div class="row" id="projectsList">
+                    {% for project in projects %}
+                        <div class="col-xl-4 col-lg-6 mb-4">
+                            <div class="card screenshot-card h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="card-title mb-0">{{ project.name }}</h5>
+                                    <span class="badge bg-secondary">{{ project.screenshot_count }} screenshots</span>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">
+                                        <i class="fas fa-link me-2"></i>
+                                        <a href="{{ project.website_url }}" target="_blank" class="text-decoration-none">
+                                            {{ project.website_url }}
+                                        </a>
+                                    </p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        Created: {{ project.created_at|date:"M d, Y" }}
+                                    </small>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="btn-group w-100" role="group">
+                                        <a href="{% url 'screenshots:project_detail' project.id %}" 
+                                           class="btn btn-primary">
+                                            <i class="fas fa-eye me-1"></i>View
+                                        </a>
+                                        <button class="btn btn-success" 
+                                                onclick="generateScreenshots({{ project.id }})">
+                                            <i class="fas fa-camera me-1"></i>Generate
+                                        </button>
+                                        <button class="btn btn-danger" 
+                                                onclick="deleteProject({{ project.id }}, '{{ project.name }}')">
+                                            <i class="fas fa-trash me-1"></i>Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No projects yet</h4>
+                    <p class="text-muted">Create your first project to start generating screenshots!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5>Generating Screenshots...</h5>
+                <p class="text-muted mb-0">This may take a moment</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('createProjectForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('projectName').value;
+    const website_url = document.getElementById('websiteUrl').value;
+    
+    try {
+        const response = await fetch('/api/projects/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, website_url })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('Project created successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+
+async function generateScreenshots(projectId) {
+    const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    loadingModal.show();
+    
+    try {
+        const response = await fetch(`/api/projects/${projectId}/screenshots/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ devices: ['mobile', 'tablet', 'desktop'] })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(`Success! Generated ${data.screenshots.length} screenshots`);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    } finally {
+        loadingModal.hide();
+    }
+}
+
+async function deleteProject(projectId, projectName) {
+    if (!confirm(`Are you sure you want to delete "${projectName}"? This will delete all associated screenshots.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/projects/${projectId}/delete/`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

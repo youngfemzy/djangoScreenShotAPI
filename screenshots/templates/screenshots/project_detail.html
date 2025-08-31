@@ -1,0 +1,182 @@
+{% extends 'screenshots/base.html' %}
+
+{% block title %}{{ project.name }} - Screenshots{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Project Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'screenshots:project_list' %}">Projects</a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ project.name }}</li>
+                </ol>
+            </nav>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="card-title mb-1">
+                                <i class="fas fa-project-diagram me-2"></i>{{ project.name }}
+                            </h2>
+                            <p class="card-text mb-0">
+                                <i class="fas fa-link me-2"></i>
+                                <a href="{{ project.website_url }}" target="_blank" class="text-decoration-none">
+                                    {{ project.website_url }}
+                                </a>
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-primary fs-6">{{ screenshots|length }} Screenshots</span>
+                            <div class="text-muted small mt-1">
+                                Created: {{ project.created_at|date:"M d, Y" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-success" onclick="generateScreenshots({{ project.id }})">
+                            <i class="fas fa-camera me-2"></i>Generate New Screenshots
+                        </button>
+                        <a href="{% url 'screenshots:project_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Projects
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screenshots Grid -->
+    {% if screenshots %}
+        <div class="row">
+            {% for screenshot in screenshots %}
+                <div class="col-xl-4 col-lg-6 mb-4">
+                    <div class="card screenshot-card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-{% if screenshot.device_type == 'mobile' %}mobile-alt{% elif screenshot.device_type == 'tablet' %}tablet-alt{% else %}desktop{% endif %} me-2"></i>
+                                {{ screenshot.device_name }}
+                            </h5>
+                            <span class="badge bg-{% if screenshot.device_type == 'mobile' %}success{% elif screenshot.device_type == 'tablet' %}warning{% else %}info{% endif %}">
+                                {{ screenshot.device_type|title }}
+                            </span>
+                        </div>
+                        <div class="card-body text-center">
+                            {% if screenshot.mockup_path %}
+                                <img src="/{{ screenshot.mockup_path }}" 
+                                     alt="{{ screenshot.device_name }} mockup" 
+                                     class="device-mockup mb-3"
+                                     style="max-height: 250px;">
+                            {% else %}
+                                <div class="bg-light p-4 mb-3 rounded">
+                                    <i class="fas fa-image fa-3x text-muted"></i>
+                                    <p class="text-muted mt-2">Mockup not available</p>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="row text-start">
+                                <div class="col-6">
+                                    <small class="text-muted">Resolution:</small><br>
+                                    <strong>{{ screenshot.width }}×{{ screenshot.height }}</strong>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Created:</small><br>
+                                    <strong>{{ screenshot.created_at|date:"M d" }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <div class="btn-group w-100" role="group">
+                                {% if screenshot.original_path %}
+                                    <a href="/{{ screenshot.original_path }}" target="_blank" 
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-external-link-alt me-1"></i>Original
+                                    </a>
+                                {% endif %}
+                                {% if screenshot.mockup_path %}
+                                    <a href="/{{ screenshot.mockup_path }}" target="_blank" 
+                                       class="btn btn-primary btn-sm">
+                                        <i class="fas fa-eye me-1"></i>Mockup
+                                    </a>
+                                {% endif %}
+                                <a href="/{{ screenshot.mockup_path }}" download 
+                                   class="btn btn-success btn-sm">
+                                    <i class="fas fa-download me-1"></i>Download
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-camera fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">No Screenshots Yet</h4>
+                        <p class="text-muted mb-4">Generate your first set of device screenshots for this project.</p>
+                        <button class="btn btn-primary btn-lg" onclick="generateScreenshots({{ project.id }})">
+                            <i class="fas fa-camera me-2"></i>Generate Screenshots
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5>Generating Screenshots...</h5>
+                <p class="text-muted mb-0">Capturing website on different devices...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function generateScreenshots(projectId) {
+    const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    loadingModal.show();
+    
+    try {
+        const response = await fetch(`/api/projects/${projectId}/screenshots/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ devices: ['mobile', 'tablet', 'desktop'] })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(`Success! Generated ${data.screenshots.length} screenshots`);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    } finally {
+        loadingModal.hide();
+    }
+}
+</script>
+{% endblock %}
