@@ -1,0 +1,13 @@
+# 
+python -m pip install redis
+
+
+celery -A screenshot_generator worker -l info --pool=solo
+celery -A screenshot_generator worker -l info --pool=threads
+
+# show progress of background task
+pip install flower
+celery -A your_project flower --port=5555
+
+
+

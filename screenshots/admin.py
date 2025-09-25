@@ -4,8 +4,8 @@ from .models import Project, Screenshot
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ('name', 'website_url', 'screenshot_count', 'created_at', 'updated_at')
-    list_filter = ('created_at', 'updated_at')
+    list_display = ('name', 'website_url', 'screenshot_count', 'creator_id', 'creator_name','created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at', 'creator_name')
     search_fields = ('name', 'website_url')
     readonly_fields = ('created_at', 'updated_at')
     

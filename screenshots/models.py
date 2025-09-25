@@ -8,14 +8,23 @@ class Project(models.Model):
     
     name = models.CharField(max_length=200, help_text="Project name")
     website_url = models.URLField(help_text="Website URL to capture")
+    creator_id = models.CharField(max_length=100, help_text="User ID who created the project", default=1)
+    creator_name = models.CharField(max_length=200, help_text="Name of the creator", default="femi")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # ✅ new fields for delays 
+    page_delay = models.IntegerField(default=3000, help_text="Delay after page load in ms")
+    scroll_delay = models.IntegerField(default=100, help_text="Delay per scroll step in ms")
+    timeout = models.IntegerField(default=120000, help_text="Global timeout in ms")
+
     
     class Meta:
         ordering = ['-created_at']
         
     def __str__(self):
-        return str(self.name)
+        return f"{self.name} (by {self.creator_name})"
+
     
     @property
     def screenshot_count(self):
@@ -25,7 +34,7 @@ class Project(models.Model):
     def get_project_folder(self):
         """Get the folder path for this project"""
         from django.conf import settings
-        return os.path.join(settings.SCREENSHOT_ROOT, f'user1/project_{self.id}')
+        return os.path.join(settings.MEDIA_ROOT, f'users_projects/{self.creator_name}/{self.name}/project_{self.id}')
     
     def get_normal_screenshots_folder(self):
         """Get the folder path for normal screenshots"""
