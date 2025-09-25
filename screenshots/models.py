@@ -34,7 +34,7 @@ class Project(models.Model):
     def get_project_folder(self):
         """Get the folder path for this project"""
         from django.conf import settings
-        return os.path.join(settings.MEDIA_ROOT, f'users_projects/{self.creator_name}/{self.name}/project_{self.id}')
+        return os.path.join(settings.MEDIA_ROOT, f'users_projects/{self.creator_name}_{self.creator_id}/{self.name}/project_{self.id}')
     
     def get_normal_screenshots_folder(self):
         """Get the folder path for normal screenshots"""

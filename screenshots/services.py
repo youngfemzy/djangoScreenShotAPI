@@ -44,14 +44,16 @@ class ScreenshotService:
         logging.info("Main capture_screenshot function entered")
         try:
             logging.info("🎬 Trying Playwright for screenshots...")
-            return self._capture_with_playwright(url, devices, output_folder, project)
-        except Exception as playwright_error:
-            logging.error(f"[ScreenshotService] Playwright failed: {str(playwright_error)}", exc_info=True)
+            return self._capture_with_playwright(url, devices, output_folder, project)        
+        except:
+            logging.info(f"[ScreenshotService] Playwright failed:", exc_info=True)
             logging.info("⚡ Trying ScreenshotOne API For Web Screenshots...")
             return self._capture_with_screenshotone(url, devices, output_folder)
-        except Exception as e:
-            logging.error(f"[ScreenshotService] All Sreenshot Methods failed")
-            return [{'success': False, 'error': str(playwright_error)}]
+        # except Exception as e:
+        #     logging.error(f"[ScreenshotService] All Sreenshot Methods failed")
+        #     return [{'success': False, 'error': str(playwright_error)}]
+            
+            # -------------------------------------------------------------
             
             # Try Playwright first, then Selenium, finally placeholder
         #     try:
@@ -109,9 +111,9 @@ class ScreenshotService:
             context.set_default_timeout(timeout)
             context.set_default_navigation_timeout(navigation_timeout)
             
-            logging.info("Chromium Creating a Page")
+            logging.info("[Playwright] Chromium Creating a Page")
             page = context.new_page()
-            logging.info("Page Created")
+            logging.info("[Playwright] Page Created")
 
             try:
                 # ✅ Load page
@@ -134,9 +136,9 @@ class ScreenshotService:
                     page.wait_for_timeout(1000)
 
                     # ✅ Scroll step-by-step to trigger lazy-load / animations
+                    logging.info(f" → Scrolling to each section of this website : To capture each step/section and combine later")
                     scroll_height = page.evaluate("document.body.scrollHeight")
                     for pos in range(0, scroll_height, config["height"] // 2):
-                        logging.info(f" → Scrolling to each section of this website at {pos}")
                         page.evaluate(f"window.scrollTo(0, {pos})")
                         # delay per scroll section of the website
                         page.wait_for_timeout(scroll_delay) 
